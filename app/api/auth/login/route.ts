@@ -20,19 +20,40 @@ function getVercelDemoPassword() {
   if (typeof env === 'string' && env.trim()) return env.trim()
   return DEFAULT_DEMO_PASSWORD
 }
+function normalizeEmail(s: string) {
+  return s
+    .trim()
+    .toLowerCase()
+    .replace(/[\x00-\x1f\x7f-\uFFFF]/g, '')
+}
+function normalizePassword(s: string) {
+  return s.trim().replace(/\s/g, '')
+}
 function isVercelDemoEmail(e: string) {
-  return e.trim().toLowerCase() === VERCEL_DEMO_EMAIL
+  return normalizeEmail(e) === VERCEL_DEMO_EMAIL
 }
 
 export async function POST(req: NextRequest) {
-  const body = await req.json().catch(() => null)
+  let body: unknown = await req.json().catch(() => null)
+  if (typeof body === 'string') {
+    try {
+      body = JSON.parse(body) as unknown
+    } catch {
+      body = null
+    }
+  }
+  if (!body || typeof body !== 'object' || body === null) {
+    return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
+  }
+  const b = body as Record<string, unknown>
+  const email = typeof b.email === 'string' ? b.email : ''
+  const password = typeof b.password === 'string' ? b.password : ''
 
-  if (!body || typeof body.email !== 'string' || typeof body.password !== 'string') {
+  if (!email) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
 
-  const { email, password } = body as { email: string; password: string }
-  const pwd = typeof password === 'string' ? password.trim() : ''
+  const pwd = normalizePassword(password)
 
   // Vercel demo user: no DB required. Accept default password always, or env override.
   const demoPwdOk =
