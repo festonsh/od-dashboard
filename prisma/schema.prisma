@@ -1,0 +1,80 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id              Int       @id @default(autoincrement())
+  name            String
+  email           String    @unique
+  /// "EMPLOYEE" | "MANAGEMENT"
+  role            String
+  phone           String?
+  trade           String?
+  defaultLocation String?
+  passwordHash    String
+
+  assignments     Assignment[]
+  passwordResetTokens PasswordResetToken[]
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model Project {
+  id          Int            @id @default(autoincrement())
+  name        String
+  description String?
+  customer    String?
+  contact     String?
+  address     String
+  startDate   DateTime?
+  endDate     DateTime?
+  notes       String?
+  /// "ACTIVE" | "COMPLETED" | "ON_HOLD" | "ARCHIVED"
+  status      String         @default("ACTIVE")
+
+  assignments Assignment[]
+
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model Assignment {
+  id           Int      @id @default(autoincrement())
+  date         DateTime
+  /// "DEFAULT" | "OVERRIDE"
+  type         String   @default("DEFAULT")
+
+  user         User           @relation(fields: [userId], references: [id])
+  userId       Int
+
+  project      Project?       @relation(fields: [projectId], references: [id])
+  projectId    Int?
+
+  startTime    String?
+  endTime      String?
+  workType     String?
+  meetingPoint String?
+  notes        String?
+
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model PasswordResetToken {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+}
+

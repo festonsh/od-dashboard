@@ -1,7 +1,10 @@
 node_modules
 .output
 .nuxt
+.next
 .idea
 .vscode
 .DS_Store
+prisma/dev.db
+
 

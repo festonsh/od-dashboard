@@ -1,0 +1,62 @@
+import { cookies } from 'next/headers'
+import * as bcrypt from 'bcryptjs'
+import { prisma } from './prisma'
+
+const AUTH_COOKIE = 'od_auth'
+
+export async function verifyPassword(password: string, hash: string) {
+  return bcrypt.compare(password, hash)
+}
+
+export async function hashPassword(password: string) {
+  const salt = await bcrypt.genSalt(10)
+  return bcrypt.hash(password, salt)
+}
+
+export async function getCurrentUser() {
+  const raw = cookies().get(AUTH_COOKIE)?.value
+  if (!raw) return null
+
+  try {
+    const parsed = JSON.parse(raw) as { id: number }
+    if (!parsed?.id) return null
+    return prisma.user.findUnique({
+      where: { id: parsed.id },
+      select: { id: true, name: true, email: true, role: true }
+    })
+  } catch {
+    return null
+  }
+}
+
+export async function requireCurrentUser() {
+  const user = await getCurrentUser()
+  if (!user) {
+    throw new Error('Unauthenticated')
+  }
+  return user
+}
+
+export async function requireManagementUser() {
+  const user = await requireCurrentUser()
+  if (user.role !== 'MANAGEMENT') {
+    throw new Error('Forbidden')
+  }
+  return user
+}
+
+export function setAuthCookie(user: { id: number; role: string }) {
+  const value = JSON.stringify({ id: user.id, role: user.role })
+  cookies().set(AUTH_COOKIE, value, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: 60 * 60 * 24 * 30
+  })
+}
+
+export function clearAuthCookie() {
+  cookies().delete(AUTH_COOKIE)
+}
+
