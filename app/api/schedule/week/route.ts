@@ -3,10 +3,10 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 import { startOfWeek, addDays } from 'date-fns'
-import { prisma } from '../../../../lib/prisma'
-import { requireCurrentUser } from '../../../../lib/auth'
 
 export async function GET(req: NextRequest) {
+  const { prisma } = await import('../../../../lib/prisma')
+  const { requireCurrentUser } = await import('../../../../lib/auth')
   const user = await requireCurrentUser()
 
   const weekStartParam = req.nextUrl.searchParams.get('start') || undefined

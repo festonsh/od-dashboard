@@ -2,8 +2,6 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '../../../../lib/prisma'
-import { setAuthCookie, verifyPassword, hashPassword } from '../../../../lib/auth'
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
@@ -13,6 +11,9 @@ export async function POST(req: NextRequest) {
   }
 
   const { email, password } = body as { email: string; password: string }
+
+  const { prisma } = await import('../../../../lib/prisma')
+  const { setAuthCookie, verifyPassword, hashPassword } = await import('../../../../lib/auth')
 
   let user = await prisma.user.findUnique({ where: { email } })
 
