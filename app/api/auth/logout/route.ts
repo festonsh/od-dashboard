@@ -1,8 +1,11 @@
-import { NextResponse } from 'next/server'
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
+import { NextRequest, NextResponse } from 'next/server'
 import { clearAuthCookie } from '../../../../lib/auth'
 
-export async function POST() {
+export async function POST(req: NextRequest) {
   clearAuthCookie()
-  return NextResponse.redirect(new URL('/login', process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'))
+  return NextResponse.redirect(new URL('/login', req.url))
 }
 
