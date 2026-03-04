@@ -5,6 +5,16 @@ import { setAuthCookie as setAuthCookieImpl, clearAuthCookie as clearAuthCookieI
 
 const AUTH_COOKIE = 'od_auth'
 
+/** Sentinel id for hardcoded Vercel demo user (no DB required) */
+export const DEMO_USER_ID = 0
+
+const DEMO_USER = {
+  id: DEMO_USER_ID,
+  name: 'Vercel Demo',
+  email: 'demo@odetaa.com',
+  role: 'MANAGEMENT' as const
+}
+
 export const setAuthCookie = setAuthCookieImpl
 export const clearAuthCookie = clearAuthCookieImpl
 
@@ -22,7 +32,8 @@ export async function getCurrentUser() {
   if (!raw) return null
 
   try {
-    const parsed = JSON.parse(raw) as { id: number }
+    const parsed = JSON.parse(raw) as { id: number; role?: string }
+    if (parsed?.id === DEMO_USER_ID) return DEMO_USER
     if (!parsed?.id) return null
     return prisma.user.findUnique({
       where: { id: parsed.id },

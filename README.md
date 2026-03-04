@@ -32,3 +32,5 @@ Create users from **Users** in the sidebar; set role to **Employee** or **Admin 
 
 For production on Vercel, the main branch is built with `npm run build`. Run the seed on your production DB once to create the admin user.
 
+**Vercel demo login (no database required):** Use **demo@odetaa.com** / **VercelDemo123!** to sign in on Vercel without configuring a database. Optional: set `VERCEL_DEMO_PASSWORD` in Vercel env to override the password.
+
