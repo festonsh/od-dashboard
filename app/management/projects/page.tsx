@@ -1,14 +1,25 @@
-export const runtime = 'nodejs'
-export const dynamic = 'force-dynamic'
+'use client'
 
-import { prisma } from '../../../lib/prisma'
+import { useEffect, useState } from 'react'
 
-export default async function ProjectsPage() {
-  const projects = await prisma.project.findMany({
-    orderBy: { createdAt: 'desc' }
-  })
+type Project = {
+  id: number
+  name: string
+  address: string
+  status: string
+}
 
-  // Form is handled client-side via a simple HTML form posting to the API.
+export default function ProjectsPage() {
+  const [projects, setProjects] = useState<Project[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetch('/api/projects')
+      .then((r) => (r.ok ? r.json() : Promise.reject(r)))
+      .then((data) => setProjects(data.projects ?? []))
+      .catch(() => setProjects([]))
+      .finally(() => setLoading(false))
+  }, [])
 
   return (
     <div className="page">
@@ -16,14 +27,17 @@ export default async function ProjectsPage() {
         <h1>Projects</h1>
       </header>
       <p>For now, manage projects via the API or database; UI editing can be expanded here.</p>
-      <ul>
-        {projects.map((p) => (
-          <li key={p.id}>
-            <strong>{p.name}</strong> – {p.address} ({p.status})
-          </li>
-        ))}
-      </ul>
+      {loading ? (
+        <p>Loading…</p>
+      ) : (
+        <ul>
+          {projects.map((p) => (
+            <li key={p.id}>
+              <strong>{p.name}</strong> – {p.address} ({p.status})
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
-
