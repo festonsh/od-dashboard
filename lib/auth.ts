@@ -1,8 +1,12 @@
 import { cookies } from 'next/headers'
 import * as bcrypt from 'bcryptjs'
 import { prisma } from './prisma'
+import { setAuthCookie as setAuthCookieImpl, clearAuthCookie as clearAuthCookieImpl } from './auth-cookies'
 
 const AUTH_COOKIE = 'od_auth'
+
+export const setAuthCookie = setAuthCookieImpl
+export const clearAuthCookie = clearAuthCookieImpl
 
 export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash)
@@ -45,18 +49,4 @@ export async function requireManagementUser() {
   return user
 }
 
-export function setAuthCookie(user: { id: number; role: string }) {
-  const value = JSON.stringify({ id: user.id, role: user.role })
-  cookies().set(AUTH_COOKIE, value, {
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: 60 * 60 * 24 * 30
-  })
-}
-
-export function clearAuthCookie() {
-  cookies().delete(AUTH_COOKIE)
-}
 

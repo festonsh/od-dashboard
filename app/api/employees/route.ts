@@ -2,10 +2,10 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '../../../lib/prisma'
-import { requireManagementUser, hashPassword } from '../../../lib/auth'
 
 export async function GET() {
+  const { prisma } = await import('../../../lib/prisma')
+  const { requireManagementUser } = await import('../../../lib/auth')
   await requireManagementUser()
   const employees = await prisma.user.findMany({
     orderBy: { name: 'asc' }
@@ -14,6 +14,13 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const { prisma, requireManagementUser, hashPassword } = await (async () => {
+    const [p, a] = await Promise.all([
+      import('../../../lib/prisma'),
+      import('../../../lib/auth')
+    ])
+    return { prisma: p.prisma, requireManagementUser: a.requireManagementUser, hashPassword: a.hashPassword }
+  })()
   await requireManagementUser()
   const body = (await req.json().catch(() => null)) as
     | {
@@ -35,14 +42,26 @@ export async function POST(req: NextRequest) {
   const { id, password, ...rest } = body
 
   if (id) {
+    const updateData: {
+      name: string
+      email: string
+      role: 'EMPLOYEE' | 'MANAGEMENT'
+      phone: string | null
+      trade: string | null
+      defaultLocation: string | null
+      passwordHash?: string
+    } = {
+      ...rest,
+      phone: rest.phone || null,
+      trade: rest.trade || null,
+      defaultLocation: rest.defaultLocation || null
+    }
+    if (password && password.length >= 6) {
+      updateData.passwordHash = await hashPassword(password)
+    }
     const employee = await prisma.user.update({
       where: { id },
-      data: {
-        ...rest,
-        phone: rest.phone || null,
-        trade: rest.trade || null,
-        defaultLocation: rest.defaultLocation || null
-      }
+      data: updateData
     })
     return NextResponse.json({ employee })
   }

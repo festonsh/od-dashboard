@@ -2,10 +2,10 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '../../../../lib/prisma'
-import { requireManagementUser } from '../../../../lib/auth'
 
 export async function POST(req: NextRequest) {
+  const { prisma } = await import('../../../../lib/prisma')
+  const { requireManagementUser } = await import('../../../../lib/auth')
   await requireManagementUser()
   const body = (await req.json().catch(() => null)) as
     | {

@@ -2,10 +2,10 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '../../../lib/prisma'
-import { requireManagementUser } from '../../../lib/auth'
 
 export async function GET(req: NextRequest) {
+  const { prisma } = await import('../../../lib/prisma')
+  const { requireManagementUser } = await import('../../../lib/auth')
   await requireManagementUser()
   const status = req.nextUrl.searchParams.get('status') || 'ACTIVE'
 
@@ -18,6 +18,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const { prisma, requireManagementUser } = await (async () => {
+    const [p, a] = await Promise.all([
+      import('../../../lib/prisma'),
+      import('../../../lib/auth')
+    ])
+    return { prisma: p.prisma, requireManagementUser: a.requireManagementUser }
+  })()
   await requireManagementUser()
   const body = (await req.json().catch(() => null)) as
     | {

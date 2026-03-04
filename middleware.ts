@@ -6,11 +6,7 @@ const PUBLIC_PATHS = ['/login', '/api/auth/login']
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl
 
-  if (
-    pathname.startsWith('/_next') ||
-    pathname.startsWith('/api/auth/logout') ||
-    pathname === '/'
-  ) {
+  if (pathname.startsWith('/_next') || pathname.startsWith('/api/auth/logout')) {
     return NextResponse.next()
   }
 
@@ -21,10 +17,18 @@ export function middleware(req: NextRequest) {
   const raw = req.cookies.get('od_auth')?.value
   const user = raw ? (JSON.parse(raw) as { id: number; role: string }) : null
 
+  // Landing page = login: send unauthenticated users to /login (including /)
   if (!user && !pathname.startsWith('/api')) {
     const url = req.nextUrl.clone()
     url.pathname = '/login'
-    url.searchParams.set('from', pathname)
+    if (pathname !== '/') url.searchParams.set('from', pathname)
+    return NextResponse.redirect(url)
+  }
+
+  // Authenticated users hitting / go to dashboard
+  if (pathname === '/' && user) {
+    const url = req.nextUrl.clone()
+    url.pathname = user.role === 'MANAGEMENT' ? '/management/dashboard' : '/my-schedule'
     return NextResponse.redirect(url)
   }
 

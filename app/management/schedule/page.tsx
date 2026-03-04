@@ -85,6 +85,12 @@ export default function SchedulePage() {
     setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString())
   }
 
+  function goToDate(date: Date) {
+    setWeekStart(startOfWeek(date, { weekStartsOn: 1 }).toISOString())
+  }
+
+  const datePickerValue = weekStart.slice(0, 10)
+
   const [dialogState, setDialogState] = useState<{
     open: boolean
     employeeId: number | null
@@ -160,64 +166,88 @@ export default function SchedulePage() {
     closeDialog()
   }
 
-  const formattedWeekStart = format(new Date(weekStart), 'MMM d, yyyy')
+  const weekStartDate = new Date(weekStart)
+  const formattedMonthYear = format(weekStartDate, 'MMMM yyyy')
+  const formattedWeekRange = `${format(weekStartDate, 'MMM d')} – ${format(addDays(weekStartDate, 6), 'MMM d, yyyy')}`
 
   return (
-    <div className="page">
-      <header className="header">
-        <div>
-          <h1>Weekly schedule</h1>
-          <p className="subtitle">Week of {formattedWeekStart}</p>
+    <div className="page schedule-page">
+      <header className="calendar-toolbar">
+        <div className="calendar-nav">
+          <button type="button" className="calendar-nav-btn" onClick={() => shiftWeek(-1)} aria-label="Previous week">
+            ‹
+          </button>
+          <div className="calendar-title">
+            <span className="calendar-month">{formattedMonthYear}</span>
+            <span className="calendar-range">{formattedWeekRange}</span>
+          </div>
+          <button type="button" className="calendar-nav-btn" onClick={() => shiftWeek(1)} aria-label="Next week">
+            ›
+          </button>
         </div>
-        <div className="actions">
-          <button onClick={() => shiftWeek(-1)}>Previous week</button>
-          <button onClick={resetWeek}>Current week</button>
-          <button onClick={() => shiftWeek(1)}>Next week</button>
+        <div className="calendar-toolbar-actions">
+          <label className="calendar-date-picker-wrap">
+            <span className="calendar-date-picker-label">Go to date</span>
+            <input
+              type="date"
+              value={datePickerValue}
+              onChange={(e) => {
+                const v = e.target.value
+                if (v) goToDate(new Date(v))
+              }}
+              className="calendar-date-picker"
+            />
+          </label>
+          <button type="button" className="btn-secondary" onClick={resetWeek}>
+            Today
+          </button>
         </div>
       </header>
 
-      <section className="filters">
-        <label>
-          Filter by name
-          <input
-            value={employeeFilter}
-            onChange={(e) => setEmployeeFilter(e.target.value)}
-            placeholder="Search employees"
-          />
-        </label>
+      <section className="calendar-filters">
+        <input
+          type="search"
+          value={employeeFilter}
+          onChange={(e) => setEmployeeFilter(e.target.value)}
+          placeholder="Search by name…"
+          className="calendar-search"
+        />
       </section>
 
-      <section className="grid-wrapper">
-        <table className="grid">
+      <section className="calendar-wrap">
+        <table className="calendar">
           <thead>
             <tr>
-              <th>Employee</th>
+              <th className="calendar-col-employee">Employee</th>
               {days.map((day) => (
-                <th key={day}>{format(new Date(day), 'EEE d')}</th>
+                <th key={day} className="calendar-day-col">
+                  <span className="calendar-day-name">{format(new Date(day), 'EEE')}</span>
+                  <span className="calendar-day-num">{format(new Date(day), 'd')}</span>
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {employees.map((employee) => (
-              <tr key={employee.id}>
-                <td className="employee-cell">{employee.name}</td>
+              <tr key={employee.id} className="calendar-row">
+                <td className="calendar-employee-cell">{employee.name}</td>
                 {days.map((day) => {
                   const c = cell(employee.id, day)
+                  const isUnassigned = !c.projectName || c.type === 'UNASSIGNED'
                   return (
                     <td
                       key={day + '-' + employee.id}
-                      className="cell"
+                      className="calendar-cell"
                       onClick={() => openEditor(employee.id, day)}
                     >
-                      <div className="assignment" data-type={c.type}>
-                        <span className="project">
-                          {c.projectName || 'Unassigned'}
+                      <div className={`calendar-event ${isUnassigned ? 'calendar-event--empty' : ''}`} data-type={c.type}>
+                        <span className="calendar-event-project">
+                          {c.projectName || '—'}
                         </span>
-                        {c.workType && (
-                          <span className="work">{c.workType}</span>
-                        )}
-                        {c.meetingPoint && (
-                          <span className="meta">{c.meetingPoint}</span>
+                        {!isUnassigned && (c.workType || c.meetingPoint) && (
+                          <span className="calendar-event-meta">
+                            {[c.workType, c.meetingPoint].filter(Boolean).join(' · ')}
+                          </span>
                         )}
                       </div>
                     </td>
@@ -351,10 +381,10 @@ export default function SchedulePage() {
             </label>
 
             <div className="dialog-actions">
-              <button type="button" onClick={closeDialog}>
+              <button type="button" className="btn-secondary" onClick={closeDialog}>
                 Cancel
               </button>
-              <button type="button" onClick={saveEdit}>
+              <button type="button" className="btn-primary" onClick={saveEdit}>
                 Save
               </button>
             </div>
