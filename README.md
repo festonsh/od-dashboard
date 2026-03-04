@@ -1,6 +1,6 @@
-# Odetaa Nuxt 3 App
+# Odetaa Dashboard
 
-This is a minimal **Nuxt 3 (Vue)** application scaffolded in the `odetaa` folder.
+This is a simple **Next.js (React)** internal scheduling dashboard deployed on Vercel.
 
 ## Scripts
 
@@ -19,4 +19,6 @@ This is a minimal **Nuxt 3 (Vue)** application scaffolded in the `odetaa` folder
    npm run dev
    ```
 3. Open the printed local URL in your browser.
+
+For production on Vercel, the main branch is built with `npm run build`.
 
