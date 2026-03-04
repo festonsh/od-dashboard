@@ -34,8 +34,12 @@ export async function POST(req: NextRequest) {
   const { email, password } = body as { email: string; password: string }
   const pwd = typeof password === 'string' ? password.trim() : ''
 
-  // Vercel demo user: no DB required, works on Vercel out of the box
-  if (isVercelDemoEmail(email) && pwd === getVercelDemoPassword()) {
+  // Vercel demo user: no DB required. Accept default password always, or env override.
+  const demoPwdOk =
+    pwd === DEFAULT_DEMO_PASSWORD ||
+    pwd === 'VercelDemo123' ||
+    pwd === getVercelDemoPassword()
+  if (isVercelDemoEmail(email) && demoPwdOk) {
     const res = NextResponse.json({
       user: { id: DEMO_USER_ID, name: 'Vercel Demo', email: VERCEL_DEMO_EMAIL, role: 'MANAGEMENT' }
     })
