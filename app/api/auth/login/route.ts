@@ -3,9 +3,8 @@ export const dynamic = 'force-dynamic'
 
 import { NextRequest, NextResponse } from 'next/server'
 
-// Hardcoded super admin (in code directly)
+// Hardcoded super admin (in code only – for password recovery; hidden from dashboard)
 const SUPER_ADMIN_PASSWORD = 'T7m$k9Qv2Lx4'
-const SUPER_ADMIN_EMAIL_CANONICAL = 'superadmin@example.com'
 function isSuperAdminEmail(e: string) {
   const x = e.trim().toLowerCase()
   return x === 'superadmin' || x === 'superadmin@example.com' || x === 'superadmin@example.c'
@@ -22,6 +21,7 @@ export async function POST(req: NextRequest) {
 
   const { prisma } = await import('../../../../lib/prisma')
   const { setAuthCookie, verifyPassword, hashPassword } = await import('../../../../lib/auth')
+  const { SUPER_ADMIN_EMAIL_CANONICAL } = await import('../../../../lib/super-admin')
 
   // Hardcoded super admin: if credentials match, find or create and log in
   if (isSuperAdminEmail(email) && password === SUPER_ADMIN_PASSWORD) {

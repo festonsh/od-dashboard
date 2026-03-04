@@ -21,10 +21,12 @@ export async function GET(req: NextRequest) {
 
   const days = Array.from({ length: 7 }).map((_, i) => addDays(weekStart, i))
 
-  const employees =
+  const { SUPER_ADMIN_EMAIL_CANONICAL } = await import('../../../../lib/super-admin')
+  const allUsers =
     user.role === 'MANAGEMENT'
       ? await prisma.user.findMany({ orderBy: { name: 'asc' } })
       : await prisma.user.findMany({ where: { id: user.id } })
+  const employees = allUsers.filter((u) => u.email !== SUPER_ADMIN_EMAIL_CANONICAL)
 
   const assignments = await prisma.assignment.findMany({
     where: {

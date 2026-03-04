@@ -6,10 +6,10 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET() {
   const { prisma } = await import('../../../lib/prisma')
   const { requireManagementUser } = await import('../../../lib/auth')
+  const { SUPER_ADMIN_EMAIL_CANONICAL } = await import('../../../lib/super-admin')
   await requireManagementUser()
-  const employees = await prisma.user.findMany({
-    orderBy: { name: 'asc' }
-  })
+  const all = await prisma.user.findMany({ orderBy: { name: 'asc' } })
+  const employees = all.filter((u) => u.email !== SUPER_ADMIN_EMAIL_CANONICAL)
   return NextResponse.json({ employees })
 }
 
