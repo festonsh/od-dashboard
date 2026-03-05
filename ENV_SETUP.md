@@ -52,13 +52,11 @@ Në Vercel, bëni **Redeploy** të deployment-it (Deployments → ... → Redepl
 
 ## Email (opsional) – njoftim për assign
 
-Kur admini assignon një punonjës (një ditë ose bulk), mund të dërgohet email tek puntori. Nëse nuk konfiguroni SMTP, assignimet ruhen normalisht por nuk dërgohet email.
+Kur admini assignon një punonjës (një ditë ose bulk), mund të dërgohet email tek puntori. Aplikacioni përdor **Resend** (https://resend.com). Nëse nuk vendosni `RESEND_API_KEY`, assignimet ruhen normalisht por nuk dërgohet email.
 
 Në **Vercel** (ose në `.env` lokal) shtoni:
 
-- `SMTP_HOST` – serveri SMTP (p.sh. `smtp.gmail.com`, `smtp.sendgrid.net`)
-- `SMTP_PORT` – zakonisht `587`
-- `SMTP_USER` dhe `SMTP_PASS` – kredencialet
-- `SMTP_FROM` (opsional) – adresa “From” (p.sh. `OD Scheduler <noreply@domeni juaj.com>`)
+- `RESEND_API_KEY` – API key nga Resend (Dashboard → API Keys)
+- `RESEND_FROM` (opsional) – adresa “From”; për testim përdoret `onboarding@resend.dev`; për prodhim verifiko një domen në Resend dhe përdor p.sh. `OD Scheduler <noreply@domeni juaj.com>`
 
-Pa këto variabla, dërgoja e emailit nuk aktivizohet dhe nuk jep gabim.
+Pa `RESEND_API_KEY`, dërgoja e emailit nuk aktivizohet dhe nuk jep gabim.

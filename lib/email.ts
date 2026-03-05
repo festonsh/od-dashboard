@@ -1,27 +1,15 @@
-import type { Transporter } from 'nodemailer'
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
 
-let _transport: Transporter | null = null
+const resendApiKey = process.env.RESEND_API_KEY
+const defaultFrom = process.env.RESEND_FROM || 'onboarding@resend.dev'
 
-function getTransport(): Transporter | null {
-  if (_transport) return _transport
-  const host = process.env.SMTP_HOST
-  const user = process.env.SMTP_USER
-  const pass = process.env.SMTP_PASS
-  if (!host || !user || !pass) return null
-  _transport = nodemailer.createTransport({
-    host,
-    port: Number(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true',
-    auth: { user, pass }
-  })
-  return _transport
+function getResend() {
+  if (!resendApiKey) return null
+  return new Resend(resendApiKey)
 }
 
-const defaultFrom = process.env.SMTP_FROM || 'OD Scheduler <noreply@odetaa.com>'
-
 /**
- * Send an email. No-op if SMTP is not configured (no error).
+ * Send an email via Resend. No-op if RESEND_API_KEY is not set (no error).
  */
 export async function sendEmail(options: {
   to: string
@@ -29,15 +17,14 @@ export async function sendEmail(options: {
   text: string
   html?: string
 }): Promise<void> {
-  const transport = getTransport()
-  if (!transport) return
+  const resend = getResend()
+  if (!resend) return
   try {
-    await transport.sendMail({
+    await resend.emails.send({
       from: defaultFrom,
       to: options.to,
       subject: options.subject,
-      text: options.text,
-      html: options.html || options.text.replace(/\n/g, '<br>')
+      html: options.html ?? options.text.replace(/\n/g, '<br>')
     })
   } catch {
     // Don't fail the request if email fails
