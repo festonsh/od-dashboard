@@ -6,13 +6,22 @@ import { useEffect, useState } from 'react'
 
 type User = { id: number; name: string; role: string } | null
 
-export function DashboardShell({ children }: { children: React.ReactNode }) {
+type InitialUser = { id: number; name: string; email?: string; role: string } | null
+
+export function DashboardShell({
+  children,
+  initialUser = null
+}: {
+  children: React.ReactNode
+  initialUser?: InitialUser
+}) {
   const pathname = usePathname()
-  const [user, setUser] = useState<User>(null)
-  const [mounted, setMounted] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [user, setUser] = useState<User>(
+    initialUser ? { id: initialUser.id, name: initialUser.name, role: initialUser.role } : null
+  )
 
   useEffect(() => {
-    setMounted(true)
     fetch('/api/auth/me')
       .then((r) => r.json())
       .then((data) => setUser(data.user ?? null))
@@ -21,18 +30,22 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
 
   const isLoginPage = pathname === '/login'
 
-  if (!mounted) {
-    return <main className="main">{children}</main>
-  }
+  useEffect(() => {
+    setSidebarOpen(false)
+  }, [pathname])
 
   if (isLoginPage) {
     return <>{children}</>
   }
 
   return (
-    <div className="dashboard-shell">
+    <div className={`dashboard-shell${sidebarOpen ? ' dashboard-shell--sidebar-open' : ''}`}>
       <aside className="dashboard-sidebar">
-        <Link href={user?.role === 'MANAGEMENT' ? '/management/dashboard' : '/my-schedule'} className="logo">
+        <Link
+          href={user?.role === 'MANAGEMENT' ? '/management/dashboard' : '/my-schedule'}
+          className="logo"
+          onClick={() => setSidebarOpen(false)}
+        >
           OD Scheduler
         </Link>
         <nav>
@@ -41,24 +54,35 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <Link
                 href="/management/dashboard"
                 className={pathname === '/management/dashboard' ? 'active' : undefined}
+                onClick={() => setSidebarOpen(false)}
               >
                 Dashboard
               </Link>
               <Link
                 href="/management/projects"
                 className={pathname === '/management/projects' ? 'active' : undefined}
+                onClick={() => setSidebarOpen(false)}
               >
-                Add project
+                Projects
+              </Link>
+              <Link
+                href="/management/calendar"
+                className={pathname === '/management/calendar' ? 'active' : undefined}
+                onClick={() => setSidebarOpen(false)}
+              >
+                Project calendar
               </Link>
               <Link
                 href="/management/schedule"
                 className={pathname === '/management/schedule' ? 'active' : undefined}
+                onClick={() => setSidebarOpen(false)}
               >
                 Assign schedule
               </Link>
               <Link
                 href="/management/employees"
                 className={pathname === '/management/employees' ? 'active' : undefined}
+                onClick={() => setSidebarOpen(false)}
               >
                 Users
               </Link>
@@ -67,6 +91,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
           <Link
             href="/my-schedule"
             className={pathname === '/my-schedule' ? 'active' : undefined}
+            onClick={() => setSidebarOpen(false)}
           >
             My schedule
           </Link>
@@ -80,14 +105,41 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </p>
             </div>
           )}
-          <form action="/api/auth/logout" method="post">
+          <form
+            action="/api/auth/logout"
+            method="post"
+            onSubmit={() => setSidebarOpen(false)}
+          >
             <button className="logout" type="submit">
               Logout
             </button>
           </form>
         </div>
       </aside>
-      <main className="dashboard-main">{children}</main>
+      {sidebarOpen && (
+        <button
+          type="button"
+          className="dashboard-sidebar-backdrop"
+          aria-label="Close navigation"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      <main className="dashboard-main">
+        <div className="dashboard-mobile-header">
+          <button
+            type="button"
+            className="dashboard-mobile-menu-button"
+            aria-label="Open navigation"
+            onClick={() => setSidebarOpen(true)}
+          >
+            ☰
+          </button>
+          <span className="dashboard-mobile-title">
+            {pathname === '/my-schedule' ? 'My schedule' : 'OD Scheduler'}
+          </span>
+        </div>
+        {children}
+      </main>
     </div>
   )
 }

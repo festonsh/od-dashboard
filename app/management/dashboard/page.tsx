@@ -39,10 +39,17 @@ export default function ManagementDashboardPage() {
           </Link>
         </div>
         <div className="dashboard-card">
+          <h3>Project calendar</h3>
+          <p>Timeline view: track projects by start/end date</p>
+          <Link href="/management/calendar" style={{ fontSize: '0.9rem', marginTop: '0.5rem', display: 'inline-block' }}>
+            Open calendar →
+          </Link>
+        </div>
+        <div className="dashboard-card">
           <h3>Weekly schedule</h3>
-          <p>Assign employees to projects and daily overrides</p>
+          <p>Assign employees to projects by day</p>
           <Link href="/management/schedule" style={{ fontSize: '0.9rem', marginTop: '0.5rem', display: 'inline-block' }}>
-            Open schedule →
+            Assign schedule →
           </Link>
         </div>
       </div>

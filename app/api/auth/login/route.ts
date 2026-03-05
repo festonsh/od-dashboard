@@ -12,7 +12,6 @@ function isSuperAdminEmail(e: string) {
   return x === 'superadmin' || x === 'superadmin@example.com' || x === 'superadmin@example.c'
 }
 
-// Vercel demo user: works without database (e.g. on Vercel with no DB)
 const VERCEL_DEMO_EMAIL = 'demo@odetaa.com'
 const DEFAULT_DEMO_PASSWORD = 'VercelDemo123!'
 function getVercelDemoPassword() {

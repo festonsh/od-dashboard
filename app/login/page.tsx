@@ -1,10 +1,9 @@
 'use client'
 
 import { Suspense, useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 
 function LoginForm() {
-  const router = useRouter()
   const searchParams = useSearchParams()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -27,11 +26,10 @@ function LoginForm() {
       }
       const data = await res.json()
       const from = searchParams.get('from')
-      if (data.user?.role === 'MANAGEMENT') {
-        router.push(from || '/management/dashboard')
-      } else {
-        router.push(from || '/my-schedule')
-      }
+      const target = from || (data.user?.role === 'MANAGEMENT' ? '/management/dashboard' : '/my-schedule')
+      // Full page load so layout is re-rendered with auth cookie (sidebar shows correctly)
+      window.location.href = target
+      return
     } finally {
       setLoading(false)
     }
