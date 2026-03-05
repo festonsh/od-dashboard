@@ -1,6 +1,5 @@
 import { cookies } from 'next/headers'
 import * as bcrypt from 'bcryptjs'
-import { prisma } from './prisma'
 import { setAuthCookie as setAuthCookieImpl, clearAuthCookie as clearAuthCookieImpl } from './auth-cookies'
 
 const AUTH_COOKIE = 'od_auth'
@@ -35,6 +34,7 @@ export async function getCurrentUser() {
     const parsed = JSON.parse(raw) as { id: number; role?: string }
     if (parsed?.id === DEMO_USER_ID) return DEMO_USER
     if (!parsed?.id) return null
+    const { prisma } = await import('./prisma')
     return prisma.user.findUnique({
       where: { id: parsed.id },
       select: { id: true, name: true, email: true, role: true }
