@@ -60,6 +60,15 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  const todayStr = new Date().toISOString().slice(0, 10)
+  const startStr = body.startDate.trim().slice(0, 10)
+  if (startStr < todayStr) {
+    return NextResponse.json(
+      { error: 'Cannot assign to past dates. Start date must be today or later.' },
+      { status: 400 }
+    )
+  }
+
   const { employeeIds, projectId, type, startTime, endTime, workType, meetingPoint, notes } = body
   const rest: AssignmentPayload = {
     projectId: projectId ?? null,

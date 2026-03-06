@@ -10,6 +10,9 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<'add' | null>(null)
   const [editing, setEditing] = useState<Employee | null>(null)
+  const [removeConfirm, setRemoveConfirm] = useState<Employee | null>(null)
+  const [removeError, setRemoveError] = useState('')
+  const [removing, setRemoving] = useState(false)
   const [searchName, setSearchName] = useState('')
 
   const filtered = useMemo(() => {
@@ -115,6 +118,18 @@ export default function EmployeesPage() {
                     >
                       Edit
                     </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ marginLeft: '0.25rem', color: '#b91c1c' }}
+                      title="Remove user"
+                      onClick={() => {
+                        setRemoveError('')
+                        setRemoveConfirm(e)
+                      }}
+                    >
+                      Remove
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -122,6 +137,52 @@ export default function EmployeesPage() {
           </table>
         </div>
       )}
+
+      {removeConfirm && (
+        <div className="dialog-backdrop" onClick={() => !removing && setRemoveConfirm(null)}>
+          <div className="dialog-inner" onClick={(e) => e.stopPropagation()}>
+            <h2 style={{ margin: 0 }}>Remove user?</h2>
+            <p style={{ margin: '0.5rem 0 0', color: '#475569' }}>
+              Are you sure you want to remove <strong>{removeConfirm.name}</strong>? Their assignments will be deleted. This cannot be undone.
+            </p>
+            {removeError && <p className="login-error" style={{ marginTop: '0.75rem' }}>{removeError}</p>}
+            <div className="dialog-actions" style={{ marginTop: '1.25rem' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setRemoveConfirm(null)}
+                disabled={removing}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-primary"
+                style={{ background: '#b91c1c' }}
+                disabled={removing}
+                onClick={async () => {
+                  if (!removeConfirm) return
+                  setRemoving(true)
+                  setRemoveError('')
+                  const res = await fetch(`/api/employees/${removeConfirm.id}`, { method: 'DELETE' })
+                  if (!res.ok) {
+                    const data = await res.json().catch(() => ({}))
+                    setRemoveError(data.error || 'Failed to remove user')
+                    setRemoving(false)
+                    return
+                  }
+                  setRemoveConfirm(null)
+                  setRemoving(false)
+                  load()
+                }}
+              >
+                {removing ? 'Removing…' : 'Yes, remove user'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {(modal === 'add' || editing) && (
         <UserForm
           user={editing}

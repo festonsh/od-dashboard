@@ -3,7 +3,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { addDays, format, startOfWeek } from 'date-fns'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
-import { parseLocalDate } from '../../../lib/date-utils'
+import { parseLocalDate, toLocalDateKey } from '../../../lib/date-utils'
+
+function isPastDate(dateKey: string): boolean {
+  return dateKey < toLocalDateKey(new Date())
+}
+
+function isToday(dateKey: string): boolean {
+  return dateKey === toLocalDateKey(new Date())
+}
 
 type GridAssignment = {
   id: number
@@ -100,8 +108,10 @@ export default function SchedulePage() {
 
   const datePickerValue = weekStart.slice(0, 10)
 
+  const [assignError, setAssignError] = useState('')
   const [dialogState, setDialogState] = useState<{
     open: boolean
+    assignmentId: number
     employeeId: number | null
     date: string | null
     form: {
@@ -115,6 +125,7 @@ export default function SchedulePage() {
     }
   }>({
     open: false,
+    assignmentId: 0,
     employeeId: null,
     date: null,
     form: {
@@ -172,18 +183,26 @@ export default function SchedulePage() {
   }, [employees.length, selectedEmployeeIds.size])
 
   function openBulkAssign() {
-    setBulkForm((f) => ({
-      ...f,
-      startDate: f.startDate || defaultStart,
-      endDate: f.endDate || defaultEnd
-    }))
+    const todayKey = toLocalDateKey(new Date())
+    setBulkForm((f) => {
+      const start = f.startDate || defaultStart
+      const end = f.endDate || defaultEnd
+      const startSafe = start < todayKey ? todayKey : start
+      const endSafe = end < startSafe ? startSafe : end
+      return { ...f, startDate: startSafe, endDate: endSafe }
+    })
     setBulkOpen(true)
   }
 
   async function saveBulkAssign() {
-    const projectId = bulkForm.projectId || null
+    const todayKey = toLocalDateKey(new Date())
     const startDate = bulkForm.startDate || defaultStart
     const endDate = bulkForm.endDate || defaultEnd
+    if (startDate < todayKey) {
+      alert('Start date cannot be in the past.')
+      return
+    }
+    const projectId = bulkForm.projectId || null
     const employeeIds = Array.from(selectedEmployeeIds)
     if (employeeIds.length === 0) return
     setBulkSaving(true)
@@ -220,9 +239,12 @@ export default function SchedulePage() {
   }
 
   function openEditor(employeeId: number, day: string) {
+    if (isPastDate(day)) return
+    setAssignError('')
     const existing = cell(employeeId, day)
     setDialogState({
       open: true,
+      assignmentId: existing.id ?? 0,
       employeeId,
       date: day,
       form: {
@@ -238,12 +260,30 @@ export default function SchedulePage() {
   }
 
   function closeDialog() {
+    setAssignError('')
     setDialogState((s) => ({ ...s, open: false }))
   }
 
   async function saveEdit() {
     if (!dialogState.employeeId || !dialogState.date) return
-    await fetch('/api/schedule/assign', {
+    if (isPastDate(dialogState.date)) {
+      setAssignError('Cannot assign to a past date.')
+      return
+    }
+    if (!dialogState.form.projectId || dialogState.form.projectId < 1) {
+      setAssignError('Please select a project.')
+      return
+    }
+    if (!dialogState.form.startTime?.trim()) {
+      setAssignError('Start time is required.')
+      return
+    }
+    if (!dialogState.form.endTime?.trim()) {
+      setAssignError('End time is required.')
+      return
+    }
+    setAssignError('')
+    const res = await fetch('/api/schedule/assign', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -251,17 +291,20 @@ export default function SchedulePage() {
         date: dialogState.date,
         projectId: dialogState.form.projectId || null,
         type: dialogState.form.type,
-        startTime: dialogState.form.startTime || null,
-        endTime: dialogState.form.endTime || null,
+        startTime: dialogState.form.startTime?.trim() || null,
+        endTime: dialogState.form.endTime?.trim() || null,
         workType: dialogState.form.workType || null,
         meetingPoint: dialogState.form.meetingPoint || null,
         notes: dialogState.form.notes || null
       })
     })
-
-    // Refresh week data
-    const res = await fetch(`/api/schedule/week?start=${encodeURIComponent(weekStart)}`)
-    const json = await res.json()
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setAssignError(data.error || 'Failed to save.')
+      return
+    }
+    const weekRes = await fetch(`/api/schedule/week?start=${encodeURIComponent(weekStart)}`)
+    const json = await weekRes.json()
     setData({ days: json.days, employees: json.employees, grid: json.grid })
     closeDialog()
   }
@@ -303,17 +346,6 @@ export default function SchedulePage() {
           <button type="button" className="calendar-nav-btn" onClick={() => shiftWeek(1)} aria-label="Next week">
             ›
           </button>
-        </div>
-        <div className="calendar-toolbar-actions">
-          <button
-            type="button"
-            className="btn-primary"
-            onClick={openBulkAssign}
-            disabled={selectedEmployeeIds.size === 0}
-            title={selectedEmployeeIds.size === 0 ? 'Select employees first' : `Assign ${selectedEmployeeIds.size} employee(s) to a project for a date range`}
-          >
-            Bulk assign {selectedEmployeeIds.size > 0 ? `(${selectedEmployeeIds.size})` : ''}
-          </button>
           <label className="calendar-date-picker-wrap">
             <span className="calendar-date-picker-label">Go to date</span>
             <input
@@ -326,8 +358,16 @@ export default function SchedulePage() {
               className="calendar-date-picker"
             />
           </label>
-          <button type="button" className="btn-secondary" onClick={resetWeek}>
-            Today
+        </div>
+        <div className="calendar-toolbar-actions">
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={openBulkAssign}
+            disabled={selectedEmployeeIds.size === 0}
+            title={selectedEmployeeIds.size === 0 ? 'Select employees first' : `Assign ${selectedEmployeeIds.size} employee(s) to a project for a date range`}
+          >
+            Bulk assign {selectedEmployeeIds.size > 0 ? `(${selectedEmployeeIds.size})` : ''}
           </button>
         </div>
       </header>
@@ -360,7 +400,7 @@ export default function SchedulePage() {
               </th>
               <th className="calendar-col-employee">Employee</th>
               {days.map((day) => (
-                <th key={day} className="calendar-day-col">
+                <th key={day} className={`calendar-day-col ${isPastDate(day) ? 'calendar-day-col--past' : ''} ${isToday(day) ? 'calendar-day-col--today' : ''}`}>
                   <span className="calendar-day-name">{format(parseLocalDate(day), 'EEE')}</span>
                   <span className="calendar-day-num">{format(parseLocalDate(day), 'd')}</span>
                 </th>
@@ -383,11 +423,14 @@ export default function SchedulePage() {
                 {days.map((day) => {
                   const c = cell(employee.id, day)
                   const isUnassigned = !c.projectName || c.type === 'UNASSIGNED'
+                  const past = isPastDate(day)
+                  const today = isToday(day)
                   return (
                     <td
                       key={day + '-' + employee.id}
-                      className="calendar-cell"
-                      onClick={() => openEditor(employee.id, day)}
+                      className={`calendar-cell ${past ? 'calendar-cell--past' : ''} ${today ? 'calendar-cell--today' : ''}`}
+                      onClick={() => !past && openEditor(employee.id, day)}
+                      title={past ? 'Cannot assign to past dates' : today ? 'Today' : undefined}
                     >
                       <div className={`calendar-event ${isUnassigned ? 'calendar-event--empty' : ''}`} data-type={c.type}>
                         <span className="calendar-event-project">
@@ -427,11 +470,12 @@ export default function SchedulePage() {
                   <th>Work type</th>
                   <th>Meeting point</th>
                   <th>Notes</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody>
                 {assignmentsListFiltered.map(({ employeeName, day, c }) => (
-                  <tr key={`${day}-${employeeName}`}>
+                  <tr key={`${day}-${employeeName}-${c.id}`}>
                     <td className="employee-cell">{employeeName}</td>
                     <td>{format(parseLocalDate(day), 'EEE, MMM d, yyyy')}</td>
                     <td>{c.type}</td>
@@ -445,6 +489,26 @@ export default function SchedulePage() {
                     <td>{c.workType ?? '—'}</td>
                     <td>{c.meetingPoint ?? '—'}</td>
                     <td>{c.notes ?? '—'}</td>
+                    <td>
+                      {c.id > 0 && (
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          style={{ fontSize: '0.8rem', padding: '0.25rem 0.5rem', color: '#b91c1c' }}
+                          title="Remove assignment"
+                          onClick={async () => {
+                            if (!confirm('Remove this assignment?')) return
+                            const res = await fetch(`/api/schedule/assignment/${c.id}`, { method: 'DELETE' })
+                            if (!res.ok) return
+                            const weekRes = await fetch(`/api/schedule/week?start=${encodeURIComponent(weekStart)}`)
+                            const json = await weekRes.json()
+                            setData({ days: json.days, employees: json.employees, grid: json.grid })
+                          }}
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -462,9 +526,10 @@ export default function SchedulePage() {
                 ? format(parseLocalDate(dialogState.date), 'EEEE, MMM d')
                 : ''}
             </p>
+            {assignError && <p className="login-error" style={{ margin: '0 0 0.75rem' }}>{assignError}</p>}
 
             <label>
-              Project
+              Project <span style={{ color: '#b91c1c' }}>*</span>
               <select
                 value={dialogState.form.projectId}
                 onChange={(e) =>
@@ -504,7 +569,7 @@ export default function SchedulePage() {
 
             <div className="row-inline">
               <label>
-                Start time
+                Start time <span style={{ color: '#b91c1c' }}>*</span>
                 <input
                   value={dialogState.form.startTime}
                   onChange={(e) =>
@@ -514,10 +579,11 @@ export default function SchedulePage() {
                     }))
                   }
                   placeholder="07:00"
+                  required
                 />
               </label>
               <label>
-                End time
+                End time <span style={{ color: '#b91c1c' }}>*</span>
                 <input
                   value={dialogState.form.endTime}
                   onChange={(e) =>
@@ -527,6 +593,7 @@ export default function SchedulePage() {
                     }))
                   }
                   placeholder="15:30"
+                  required
                 />
               </label>
             </div>
@@ -575,6 +642,27 @@ export default function SchedulePage() {
             </label>
 
             <div className="dialog-actions">
+              {dialogState.assignmentId > 0 && (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  style={{ marginRight: 'auto', color: '#b91c1c' }}
+                  onClick={async () => {
+                    if (!confirm('Remove this assignment? The slot will be cleared.')) return
+                    const res = await fetch(`/api/schedule/assignment/${dialogState.assignmentId}`, { method: 'DELETE' })
+                    if (!res.ok) {
+                      alert('Failed to remove assignment')
+                      return
+                    }
+                    const weekRes = await fetch(`/api/schedule/week?start=${encodeURIComponent(weekStart)}`)
+                    const json = await weekRes.json()
+                    setData({ days: json.days, employees: json.employees, grid: json.grid })
+                    closeDialog()
+                  }}
+                >
+                  Remove assignment
+                </button>
+              )}
               <button type="button" className="btn-secondary" onClick={closeDialog}>
                 Cancel
               </button>

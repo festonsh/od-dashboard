@@ -109,6 +109,24 @@ export default function ProjectsPage() {
                     >
                       Edit
                     </button>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      style={{ marginLeft: '0.25rem', color: '#b91c1c' }}
+                      title="Remove project"
+                      onClick={async () => {
+                        if (!confirm(`Remove project "${p.name}"? Assignments linked to it will be unlinked. This cannot be undone.`)) return
+                        const res = await fetch(`/api/projects/${p.id}`, { method: 'DELETE' })
+                        if (!res.ok) {
+                          const data = await res.json().catch(() => ({}))
+                          alert(data.error || 'Failed to remove project')
+                          return
+                        }
+                        load()
+                      }}
+                    >
+                      Remove
+                    </button>
                   </td>
                 </tr>
               ))}

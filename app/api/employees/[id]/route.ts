@@ -17,11 +17,6 @@ export async function GET(
     return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
   }
 
-  const fromParam = req.nextUrl.searchParams.get('from') || ''
-  const toParam = req.nextUrl.searchParams.get('to') || ''
-  const from = fromParam ? new Date(fromParam) : null
-  const to = toParam ? new Date(toParam) : null
-
   const user = await prisma.user.findUnique({
     where: { id: idNum },
     select: { id: true, name: true, email: true, role: true, phone: true, trade: true, defaultLocation: true }
@@ -30,6 +25,11 @@ export async function GET(
   if (!user) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
+
+  const fromParam = req.nextUrl.searchParams.get('from') || ''
+  const toParam = req.nextUrl.searchParams.get('to') || ''
+  const from = fromParam ? new Date(fromParam) : null
+  const to = toParam ? new Date(toParam) : null
 
   const where: { userId: number; date?: { gte?: Date; lte?: Date } } = { userId: idNum }
   if (from || to) {
@@ -60,4 +60,35 @@ export async function GET(
       notes: a.notes
     }))
   })
+}
+
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { prisma } = await import('../../../../lib/prisma')
+  const { requireManagementUser } = await import('../../../../lib/auth')
+  const { SUPER_ADMIN_EMAIL_CANONICAL } = await import('../../../../lib/super-admin')
+  await requireManagementUser()
+
+  const { id } = await params
+  const idNum = Number(id)
+  if (!id || Number.isNaN(idNum)) {
+    return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: idNum },
+    select: { id: true, email: true }
+  })
+  if (!user) {
+    return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+  if (user.email === SUPER_ADMIN_EMAIL_CANONICAL) {
+    return NextResponse.json({ error: 'Cannot delete super admin' }, { status: 403 })
+  }
+
+  await prisma.assignment.deleteMany({ where: { userId: idNum } })
+  await prisma.user.delete({ where: { id: idNum } })
+  return NextResponse.json({ ok: true })
 }

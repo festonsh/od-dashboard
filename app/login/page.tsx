@@ -40,9 +40,10 @@ function LoginForm() {
       <form className="login-card login-card--light" onSubmit={onSubmit}>
         <h1 className="login-title">OD Scheduler</h1>
 
-        <label>
-          Email
+        <div className="login-field">
+          <label htmlFor="login-email">Email</label>
           <input
+            id="login-email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             type="email"
@@ -50,21 +51,22 @@ function LoginForm() {
             autoComplete="email"
             required
           />
-        </label>
+        </div>
 
-        <label>
-          Password
+        <div className="login-field">
+          <label htmlFor="login-password">Password</label>
           <input
+            id="login-password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             type="password"
-            placeholder=""
+            placeholder="Enter your password"
             autoComplete="current-password"
             required
           />
-        </label>
+        </div>
 
-        <button type="submit" disabled={loading} className="btn-primary">
+        <button type="submit" disabled={loading} className="login-submit">
           {loading ? 'Signing in…' : 'Sign in'}
         </button>
 

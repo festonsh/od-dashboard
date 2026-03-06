@@ -27,6 +27,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
   }
 
+  const dayStr = body.date.trim().slice(0, 10)
+  const todayStr = new Date().toISOString().slice(0, 10)
+  if (dayStr < todayStr) {
+    return NextResponse.json({ error: 'Cannot assign to a past date' }, { status: 400 })
+  }
+
+  if (!body.projectId || body.projectId < 1) {
+    return NextResponse.json({ error: 'Project is required' }, { status: 400 })
+  }
+  if (!body.startTime?.trim()) {
+    return NextResponse.json({ error: 'Start time is required' }, { status: 400 })
+  }
+  if (!body.endTime?.trim()) {
+    return NextResponse.json({ error: 'End time is required' }, { status: 400 })
+  }
+
   const { employeeId, date, projectId, type, ...rest } = body
   const day = new Date(date)
 
