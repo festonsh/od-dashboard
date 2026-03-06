@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { BrandLogo } from './BrandLogo'
 
 type User = { id: number; name: string; role: string } | null
 
@@ -23,7 +24,7 @@ export function AppHeader() {
     return (
       <header className="topbar">
         <Link href="/" className="logo">
-          OD Scheduler
+          <BrandLogo showSubtitle={false} className="brand-logo--compact" />
         </Link>
         <div className="spacer" />
         <span className="nav" style={{ opacity: 0.6 }}>Loading…</span>
@@ -34,7 +35,7 @@ export function AppHeader() {
   return (
     <header className="topbar">
       <Link href="/" className="logo">
-        OD Scheduler
+        <BrandLogo showSubtitle={false} className="brand-logo--compact" />
       </Link>
       <div className="spacer" />
       {user ? (

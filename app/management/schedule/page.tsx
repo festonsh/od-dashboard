@@ -29,6 +29,20 @@ type GridAssignment = {
 type Employee = { id: number; name: string; role: string }
 type Project = { id: number; name: string }
 
+function sortAssignments(assignments: GridAssignment[]): GridAssignment[] {
+  return [...assignments].sort((a, b) => {
+    const aTime = a.startTime ?? '99:99'
+    const bTime = b.startTime ?? '99:99'
+    return aTime.localeCompare(bTime) || a.id - b.id
+  })
+}
+
+function formatAssignmentTime(assignment: Pick<GridAssignment, 'startTime' | 'endTime'>): string {
+  return [assignment.startTime, assignment.endTime].filter(Boolean).length
+    ? [assignment.startTime, assignment.endTime].filter(Boolean).join(' – ')
+    : '—'
+}
+
 function isWeekday(dateKey: string): boolean {
   const d = parseLocalDate(dateKey).getDay()
   return d >= 1 && d <= 5
@@ -42,7 +56,7 @@ export default function SchedulePage() {
   const [data, setData] = useState<{
     days: string[]
     employees: Employee[]
-    grid: Record<number, Record<string, GridAssignment>>
+    grid: Record<number, Record<string, GridAssignment[]>>
   } | null>(null)
   const [projects, setProjects] = useState<Project[]>([])
   const [employeeFilter, setEmployeeFilter] = useState('')
@@ -75,21 +89,14 @@ export default function SchedulePage() {
   const days = data?.days ?? []
   const grid = data?.grid ?? {}
 
-  function cell(employeeId: number, day: string): GridAssignment {
-    return (
-      grid?.[employeeId]?.[day] || {
-        id: 0,
-        type: 'UNASSIGNED',
-        projectId: null,
-        projectName: null,
-        address: null,
-        notes: null,
-        workType: null,
-        startTime: null,
-        endTime: null,
-        meetingPoint: null
-      }
-    )
+  async function refreshWeek() {
+    const weekRes = await fetch(`/api/schedule/week?start=${encodeURIComponent(weekStart)}`)
+    const json = await weekRes.json()
+    setData({ days: json.days, employees: json.employees, grid: json.grid })
+  }
+
+  function cellAssignments(employeeId: number, day: string): GridAssignment[] {
+    return sortAssignments(grid?.[employeeId]?.[day] ?? [])
   }
 
   function shiftWeek(offset: number) {
@@ -111,12 +118,11 @@ export default function SchedulePage() {
   const [assignError, setAssignError] = useState('')
   const [dialogState, setDialogState] = useState<{
     open: boolean
-    assignmentId: number
+    assignmentId: number | null
     employeeId: number | null
     date: string | null
     form: {
       projectId: number
-      type: 'DEFAULT' | 'OVERRIDE'
       startTime: string
       endTime: string
       workType: string
@@ -125,12 +131,11 @@ export default function SchedulePage() {
     }
   }>({
     open: false,
-    assignmentId: 0,
+    assignmentId: null,
     employeeId: null,
     date: null,
     form: {
       projectId: 0,
-      type: 'DEFAULT',
       startTime: '',
       endTime: '',
       workType: '',
@@ -144,7 +149,6 @@ export default function SchedulePage() {
   const [bulkSaving, setBulkSaving] = useState(false)
   const [bulkForm, setBulkForm] = useState({
     projectId: 0,
-    type: 'DEFAULT' as 'DEFAULT' | 'OVERRIDE',
     startDate: '',
     endDate: '',
     startTime: '',
@@ -203,58 +207,61 @@ export default function SchedulePage() {
       return
     }
     const projectId = bulkForm.projectId || null
+    if (!projectId) {
+      alert('Please select a project.')
+      return
+    }
     const employeeIds = Array.from(selectedEmployeeIds)
     if (employeeIds.length === 0) return
     setBulkSaving(true)
     try {
-      const res = await fetch('/api/schedule/assign-bulk', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          employeeIds,
-          startDate,
-          endDate,
-          projectId,
-          type: bulkForm.type,
-          startTime: bulkForm.startTime || null,
-          endTime: bulkForm.endTime || null,
-          workType: bulkForm.workType || null,
-          meetingPoint: bulkForm.meetingPoint || null,
-          notes: bulkForm.notes || null
+      try {
+        const res = await fetch('/api/schedule/assign-bulk', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            employeeIds,
+            startDate,
+            endDate,
+            projectId,
+            startTime: bulkForm.startTime || null,
+            endTime: bulkForm.endTime || null,
+            workType: bulkForm.workType || null,
+            meetingPoint: bulkForm.meetingPoint || null,
+            notes: bulkForm.notes || null
+          })
         })
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        alert(err.error || 'Bulk assign failed')
-        return
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          alert(err.error || 'Bulk assign failed')
+          return
+        }
+        setBulkOpen(false)
+        setSelectedEmployeeIds(new Set())
+        await refreshWeek()
+      } catch {
+        alert('Could not reach the server. Please try again.')
       }
-      setBulkOpen(false)
-      setSelectedEmployeeIds(new Set())
-      const weekRes = await fetch(`/api/schedule/week?start=${encodeURIComponent(weekStart)}`)
-      const json = await weekRes.json()
-      setData({ days: json.days, employees: json.employees, grid: json.grid })
     } finally {
       setBulkSaving(false)
     }
   }
 
-  function openEditor(employeeId: number, day: string) {
+  function openEditor(employeeId: number, day: string, assignment?: GridAssignment) {
     if (isPastDate(day)) return
     setAssignError('')
-    const existing = cell(employeeId, day)
     setDialogState({
       open: true,
-      assignmentId: existing.id ?? 0,
+      assignmentId: assignment?.id ?? null,
       employeeId,
       date: day,
       form: {
-        projectId: existing.projectId ?? 0,
-        type: existing.type === 'OVERRIDE' ? 'OVERRIDE' : 'DEFAULT',
-        startTime: existing.startTime || '',
-        endTime: existing.endTime || '',
-        workType: existing.workType || '',
-        meetingPoint: existing.meetingPoint || '',
-        notes: existing.notes || ''
+        projectId: assignment?.projectId ?? 0,
+        startTime: assignment?.startTime || '',
+        endTime: assignment?.endTime || '',
+        workType: assignment?.workType || '',
+        meetingPoint: assignment?.meetingPoint || '',
+        notes: assignment?.notes || ''
       }
     })
   }
@@ -274,39 +281,33 @@ export default function SchedulePage() {
       setAssignError('Please select a project.')
       return
     }
-    if (!dialogState.form.startTime?.trim()) {
-      setAssignError('Start time is required.')
-      return
-    }
-    if (!dialogState.form.endTime?.trim()) {
-      setAssignError('End time is required.')
-      return
-    }
     setAssignError('')
-    const res = await fetch('/api/schedule/assign', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        employeeId: dialogState.employeeId,
-        date: dialogState.date,
-        projectId: dialogState.form.projectId || null,
-        type: dialogState.form.type,
-        startTime: dialogState.form.startTime?.trim() || null,
-        endTime: dialogState.form.endTime?.trim() || null,
-        workType: dialogState.form.workType || null,
-        meetingPoint: dialogState.form.meetingPoint || null,
-        notes: dialogState.form.notes || null
+    try {
+      const res = await fetch('/api/schedule/assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          assignmentId: dialogState.assignmentId,
+          employeeId: dialogState.employeeId,
+          date: dialogState.date,
+          projectId: dialogState.form.projectId || null,
+          startTime: dialogState.form.startTime?.trim() || null,
+          endTime: dialogState.form.endTime?.trim() || null,
+          workType: dialogState.form.workType || null,
+          meetingPoint: dialogState.form.meetingPoint || null,
+          notes: dialogState.form.notes || null
+        })
       })
-    })
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}))
-      setAssignError(data.error || 'Failed to save.')
-      return
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setAssignError(data.error || 'Failed to save.')
+        return
+      }
+      await refreshWeek()
+      closeDialog()
+    } catch {
+      setAssignError('Could not reach the server. Please try again.')
     }
-    const weekRes = await fetch(`/api/schedule/week?start=${encodeURIComponent(weekStart)}`)
-    const json = await weekRes.json()
-    setData({ days: json.days, employees: json.employees, grid: json.grid })
-    closeDialog()
   }
 
   const formattedMonthYear = format(weekStartDate, 'MMMM yyyy')
@@ -316,8 +317,7 @@ export default function SchedulePage() {
     const list: { employeeName: string; day: string; c: GridAssignment }[] = []
     for (const employee of employees) {
       for (const day of days) {
-        const c = cell(employee.id, day)
-        if (c.projectName && c.type !== 'UNASSIGNED') {
+        for (const c of cellAssignments(employee.id, day)) {
           list.push({ employeeName: employee.name, day, c })
         }
       }
@@ -421,8 +421,7 @@ export default function SchedulePage() {
                 </td>
                 <td className="calendar-employee-cell">{employee.name}</td>
                 {days.map((day) => {
-                  const c = cell(employee.id, day)
-                  const isUnassigned = !c.projectName || c.type === 'UNASSIGNED'
+                  const assignments = cellAssignments(employee.id, day)
                   const past = isPastDate(day)
                   const today = isToday(day)
                   return (
@@ -432,14 +431,59 @@ export default function SchedulePage() {
                       onClick={() => !past && openEditor(employee.id, day)}
                       title={past ? 'Cannot assign to past dates' : today ? 'Today' : undefined}
                     >
-                      <div className={`calendar-event ${isUnassigned ? 'calendar-event--empty' : ''}`} data-type={c.type}>
-                        <span className="calendar-event-project">
-                          {c.projectName || '—'}
-                        </span>
-                        {!isUnassigned && (c.workType || c.meetingPoint) && (
-                          <span className="calendar-event-meta">
-                            {[c.workType, c.meetingPoint].filter(Boolean).join(' · ')}
-                          </span>
+                      <div className="calendar-cell-content">
+                        {assignments.length > 0 ? (
+                          <>
+                            <div className="calendar-cell-header">
+                              <span className="calendar-cell-count">
+                                {assignments.length} job{assignments.length === 1 ? '' : 's'}
+                              </span>
+                              {!past && (
+                                <button
+                                  type="button"
+                                  className="calendar-add-assignment"
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    openEditor(employee.id, day)
+                                  }}
+                                >
+                                  + Add job
+                                </button>
+                              )}
+                            </div>
+                            <div className="calendar-event-list">
+                            {assignments.map((assignment) => (
+                              <button
+                                key={assignment.id}
+                                type="button"
+                                className="calendar-event calendar-event--button"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  openEditor(employee.id, day, assignment)
+                                }}
+                              >
+                                <span className="calendar-event-project">
+                                  {assignment.projectName || '—'}
+                                </span>
+                                <span className="calendar-event-meta">
+                                  {formatAssignmentTime(assignment)}
+                                </span>
+                                {(assignment.workType || assignment.meetingPoint) && (
+                                  <span className="calendar-event-meta">
+                                    {[assignment.workType, assignment.meetingPoint].filter(Boolean).join(' · ')}
+                                  </span>
+                                )}
+                              </button>
+                            ))}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="calendar-event calendar-event--empty">
+                            <span className="calendar-event-project">No jobs yet</span>
+                            {!past && (
+                              <span className="calendar-event-meta">Click anywhere in this day to assign one</span>
+                            )}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -463,7 +507,6 @@ export default function SchedulePage() {
                 <tr>
                   <th>Employee</th>
                   <th>Date</th>
-                  <th>Type</th>
                   <th>Project</th>
                   <th>Address</th>
                   <th>Time</th>
@@ -478,14 +521,9 @@ export default function SchedulePage() {
                   <tr key={`${day}-${employeeName}-${c.id}`}>
                     <td className="employee-cell">{employeeName}</td>
                     <td>{format(parseLocalDate(day), 'EEE, MMM d, yyyy')}</td>
-                    <td>{c.type}</td>
                     <td>{c.projectName ?? '—'}</td>
                     <td>{c.address ?? '—'}</td>
-                    <td>
-                      {[c.startTime, c.endTime].filter(Boolean).length
-                        ? [c.startTime, c.endTime].filter(Boolean).join(' – ')
-                        : '—'}
-                    </td>
+                    <td>{formatAssignmentTime(c)}</td>
                     <td>{c.workType ?? '—'}</td>
                     <td>{c.meetingPoint ?? '—'}</td>
                     <td>{c.notes ?? '—'}</td>
@@ -500,9 +538,7 @@ export default function SchedulePage() {
                             if (!confirm('Remove this assignment?')) return
                             const res = await fetch(`/api/schedule/assignment/${c.id}`, { method: 'DELETE' })
                             if (!res.ok) return
-                            const weekRes = await fetch(`/api/schedule/week?start=${encodeURIComponent(weekStart)}`)
-                            const json = await weekRes.json()
-                            setData({ days: json.days, employees: json.employees, grid: json.grid })
+                            await refreshWeek()
                           }}
                         >
                           Remove
@@ -520,7 +556,7 @@ export default function SchedulePage() {
       {dialogState.open && (
         <div className="dialog-backdrop">
           <div className="dialog-inner">
-            <h2>Edit assignment</h2>
+            <h2>{dialogState.assignmentId ? 'Edit assignment' : 'Add assignment'}</h2>
             <p className="subtitle">
               {dialogState.date
                 ? format(parseLocalDate(dialogState.date), 'EEEE, MMM d')
@@ -529,7 +565,10 @@ export default function SchedulePage() {
             {assignError && <p className="login-error" style={{ margin: '0 0 0.75rem' }}>{assignError}</p>}
 
             <label>
-              Project <span style={{ color: '#b91c1c' }}>*</span>
+              <span className="dialog-field-label">
+                Project
+                <span className="dialog-field-label__required">*</span>
+              </span>
               <select
                 value={dialogState.form.projectId}
                 onChange={(e) =>
@@ -542,7 +581,7 @@ export default function SchedulePage() {
                   }))
                 }
               >
-                <option value={0}>Unassigned</option>
+                <option value={0}>Select a project</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -551,25 +590,9 @@ export default function SchedulePage() {
               </select>
             </label>
 
-            <label>
-              Type
-              <select
-                value={dialogState.form.type}
-                onChange={(e) =>
-                  setDialogState((s) => ({
-                    ...s,
-                    form: { ...s.form, type: e.target.value as 'DEFAULT' | 'OVERRIDE' }
-                  }))
-                }
-              >
-                <option value="DEFAULT">Default project assignment</option>
-                <option value="OVERRIDE">Daily override</option>
-              </select>
-            </label>
-
             <div className="row-inline">
               <label>
-                Start time <span style={{ color: '#b91c1c' }}>*</span>
+                Start time
                 <input
                   value={dialogState.form.startTime}
                   onChange={(e) =>
@@ -579,11 +602,10 @@ export default function SchedulePage() {
                     }))
                   }
                   placeholder="07:00"
-                  required
                 />
               </label>
               <label>
-                End time <span style={{ color: '#b91c1c' }}>*</span>
+                End time
                 <input
                   value={dialogState.form.endTime}
                   onChange={(e) =>
@@ -593,7 +615,6 @@ export default function SchedulePage() {
                     }))
                   }
                   placeholder="15:30"
-                  required
                 />
               </label>
             </div>
@@ -642,7 +663,7 @@ export default function SchedulePage() {
             </label>
 
             <div className="dialog-actions">
-              {dialogState.assignmentId > 0 && (
+              {dialogState.assignmentId && (
                 <button
                   type="button"
                   className="btn-secondary"
@@ -654,9 +675,7 @@ export default function SchedulePage() {
                       alert('Failed to remove assignment')
                       return
                     }
-                    const weekRes = await fetch(`/api/schedule/week?start=${encodeURIComponent(weekStart)}`)
-                    const json = await weekRes.json()
-                    setData({ days: json.days, employees: json.employees, grid: json.grid })
+                    await refreshWeek()
                     closeDialog()
                   }}
                 >
@@ -688,7 +707,7 @@ export default function SchedulePage() {
                 value={bulkForm.projectId}
                 onChange={(e) => setBulkForm((f) => ({ ...f, projectId: Number(e.target.value) }))}
               >
-                <option value={0}>Unassigned (clear assignments)</option>
+                <option value={0}>Select a project</option>
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -715,19 +734,6 @@ export default function SchedulePage() {
                 />
               </label>
             </div>
-
-            <label>
-              Type
-              <select
-                value={bulkForm.type}
-                onChange={(e) =>
-                  setBulkForm((f) => ({ ...f, type: e.target.value as 'DEFAULT' | 'OVERRIDE' }))
-                }
-              >
-                <option value="DEFAULT">Default</option>
-                <option value="OVERRIDE">Daily override</option>
-              </select>
-            </label>
 
             <div className="row-inline">
               <label>

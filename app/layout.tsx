@@ -4,8 +4,8 @@ import { DashboardShell } from './components/DashboardShell'
 import { getCurrentUser } from '../lib/auth'
 
 export const metadata = {
-  title: 'OD Scheduler',
-  description: 'Internal scheduling app'
+  title: 'A & M Electric Scheduler',
+  description: 'Internal scheduling app for A & M Electric'
 }
 
 export default async function RootLayout({ children }: { children: ReactNode }) {

@@ -2,6 +2,7 @@
 
 import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { BrandLogo } from '../components/BrandLogo'
 
 function LoginForm() {
   const searchParams = useSearchParams()
@@ -38,7 +39,9 @@ function LoginForm() {
   return (
     <div className="login-page login-page--light">
       <form className="login-card login-card--light" onSubmit={onSubmit}>
-        <h1 className="login-title">OD Scheduler</h1>
+        <div className="login-title">
+          <BrandLogo className="brand-logo--login" />
+        </div>
 
         <div className="login-field">
           <label htmlFor="login-email">Email</label>

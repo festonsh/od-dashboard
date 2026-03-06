@@ -52,7 +52,7 @@ export async function sendAssignmentNotification(options: {
     ...(meetingPoint ? [`Meeting point: ${meetingPoint}`] : []),
     ...(notes ? [`Notes: ${notes}`] : []),
     '',
-    'View your schedule: My schedule in OD Scheduler.'
+    'View your schedule: My schedule in A & M Electric Scheduler.'
   ]
   const text = lines.join('\n')
   await sendEmail({
@@ -85,7 +85,7 @@ export async function sendBulkAssignmentNotification(options: {
     ...(meetingPoint ? [`Meeting point: ${meetingPoint}`] : []),
     ...(notes ? [`Notes: ${notes}`] : []),
     '',
-    'View your schedule: My schedule in OD Scheduler.'
+    'View your schedule: My schedule in A & M Electric Scheduler.'
   ]
   const text = lines.join('\n')
   await sendEmail({

@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { BrandLogo } from './BrandLogo'
 
 type User = { id: number; name: string; role: string } | null
 
@@ -46,7 +47,7 @@ export function DashboardShell({
           className="logo"
           onClick={() => setSidebarOpen(false)}
         >
-          OD Scheduler
+          <BrandLogo />
         </Link>
         <nav>
           {user?.role === 'MANAGEMENT' && (
@@ -135,7 +136,7 @@ export function DashboardShell({
             ☰
           </button>
           <span className="dashboard-mobile-title">
-            {pathname === '/my-schedule' ? 'My schedule' : 'OD Scheduler'}
+            {pathname === '/my-schedule' ? 'My schedule' : 'A & M Electric Scheduler'}
           </span>
         </div>
         {children}
