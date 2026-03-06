@@ -3,7 +3,7 @@
 import { addMonths, format, startOfMonth, subMonths } from 'date-fns'
 import { useEffect, useMemo, useState } from 'react'
 import { useMediaQuery } from '../hooks/useMediaQuery'
-import { parseLocalDate } from '../../lib/date-utils'
+import { parseLocalDate, toLocalDateKey } from '../../lib/date-utils'
 
 type Cell = {
   type: string
@@ -110,6 +110,13 @@ export default function MySchedulePage() {
     return w
   }, [days])
 
+  const mobileDays = useMemo(() => {
+    const todayKey = toLocalDateKey(new Date())
+    const pastDays = days.filter((dateKey) => dateKey < todayKey)
+    const recentPastDays = new Set(pastDays.slice(-3))
+    return days.filter((dateKey) => dateKey >= todayKey || recentPastDays.has(dateKey))
+  }, [days])
+
   const isCurrentMonth = (dateKey: string) => {
     const d = parseLocalDate(dateKey)
     return d.getMonth() === currentMonth.getMonth()
@@ -148,7 +155,7 @@ export default function MySchedulePage() {
         <p>No schedule is available for this account.</p>
       ) : isMobile ? (
         <section className="my-schedule-list">
-          {days.map((dateKey) => {
+          {mobileDays.map((dateKey) => {
             const assignments = sortAssignments(grid[dateKey] ?? [])
             const isAssigned = assignments.length > 0
             const isExpanded = expandedDay === dateKey
